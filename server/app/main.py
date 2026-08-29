@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
-    title="Unnati Portal API (Samadhaan-Setu)",
+    title="Unnati Portal API (Unnati-Portal)",
     description="Backend API engine for grassroots problem ingestion, AI triage, and NEP/CSR lifecycle management.",
     version="1.0.0"
 )
@@ -26,4 +26,4 @@ async def health_check():
 
 @app.get("/", tags=["Root"])
 async def root():
-    return {"message": "Welcome to Unnati Portal (Samadhaan-Setu) API"}
+    return {"message": "Welcome to Unnati Portal API"}

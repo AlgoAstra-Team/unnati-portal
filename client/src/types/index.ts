@@ -30,6 +30,7 @@ export interface ProblemTicket {
   submittedAt: string;
   mukhiyaEndorsed: boolean;
   gpsCoords: { lat: number; lng: number };
+  photoUrl?: string;
   status: "Submitted" | "Verified" | "Assigned" | "In R&D" | "Pilot Deployed";
   assignedHEI?: string;
   leadFaculty?: string;

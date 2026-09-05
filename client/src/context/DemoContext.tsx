@@ -35,6 +35,7 @@ interface DemoContextType {
     sector: SectorType;
     mukhiyaEndorsed: boolean;
     gpsCoords?: { lat: number; lng: number };
+    photoUrl?: string;
   }) => ProblemTicket;
   verifyMilestone: (projectId: string, phase: number) => void;
   releaseMilestoneEscrow: (projectId: string, phase: number) => void;
@@ -74,6 +75,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     sector: SectorType;
     mukhiyaEndorsed: boolean;
     gpsCoords?: { lat: number; lng: number };
+    photoUrl?: string;
   }): ProblemTicket => {
     const districtSlug = data.district.slice(0, 2).toUpperCase();
     const randomNum = Math.floor(100 + Math.random() * 900);
@@ -96,6 +98,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       submittedAt: new Date().toISOString().split("T")[0],
       mukhiyaEndorsed: data.mukhiyaEndorsed,
       gpsCoords: data.gpsCoords || { lat: 23.3441, lng: 85.3096 },
+      photoUrl: data.photoUrl,
       status: "Verified",
       assignedHEI,
       leadFaculty: "Assigned Nodal Faculty",

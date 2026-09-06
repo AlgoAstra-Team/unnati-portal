@@ -46,8 +46,6 @@ interface DemoContextType {
 
 const DemoContext = createContext<DemoContextType | undefined>(undefined);
 
-const STORAGE_KEY = "unnati_portal_demo_state_v1";
-
 export function DemoProvider({ children }: { children: React.ReactNode }) {
   // Consistent in-memory initial state for both SSR and client to prevent hydration mismatches
   const [tickets, setTickets] = useState<ProblemTicket[]>(INITIAL_TICKETS);
@@ -58,10 +56,22 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("proj-khunti-01");
   const [selectedDistrictId, setSelectedDistrictId] = useState<string | null>("khunti");
 
-  // Clean any stale localStorage key on client mount
+  // Synchronize any custom submitted tickets across sessions
   useEffect(() => {
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      const saved = localStorage.getItem("unnati_submitted_tickets");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          queueMicrotask(() => {
+            setTickets(prev => {
+              const existingIds = new Set(prev.map(t => t.id.toUpperCase()));
+              const fresh = parsed.filter((p: ProblemTicket) => !existingIds.has(p.id.toUpperCase()));
+              return [...fresh, ...prev];
+            });
+          });
+        }
+      }
     } catch {
       // Ignore
     }
@@ -139,7 +149,17 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       ]
     };
 
-    setTickets(prev => [newTicket, ...prev]);
+    setTickets(prev => {
+      const updated = [newTicket, ...prev];
+      try {
+        const saved = localStorage.getItem("unnati_submitted_tickets");
+        const existing = saved ? JSON.parse(saved) : [];
+        localStorage.setItem("unnati_submitted_tickets", JSON.stringify([newTicket, ...existing]));
+      } catch {
+        // Ignore
+      }
+      return updated;
+    });
 
     setDistricts(prev => prev.map(d => {
       if (d.name.toLowerCase() === data.district.toLowerCase()) {
@@ -228,11 +248,21 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getTicketById = (id: string): ProblemTicket | undefined => {
+    if (!id) return undefined;
     const clean = id.trim().toUpperCase();
-    return tickets.find(t => t.id.toUpperCase() === clean);
+    const stripped = clean.replace(/[\s-]/g, "");
+    return tickets.find(t => {
+      const tid = t.id.toUpperCase();
+      return tid === clean || tid.replace(/[\s-]/g, "") === stripped || tid.includes(clean);
+    });
   };
 
   const resetDemoData = () => {
+    try {
+      localStorage.removeItem("unnati_submitted_tickets");
+    } catch {
+      // Ignore
+    }
     setTickets(INITIAL_TICKETS);
     setProjects(INITIAL_PROJECTS);
     setSponsors(CORPORATE_SPONSORS);

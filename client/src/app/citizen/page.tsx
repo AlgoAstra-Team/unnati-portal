@@ -269,7 +269,7 @@ export default function CitizenPage() {
 
     const userMsgTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const newMsg: ChatMessage = {
-      id: "msg-" + Date.now(),
+      id: `msg-${new Date().getTime()}`,
       sender: "user",
       text,
       time: userMsgTime,
@@ -860,10 +860,16 @@ export default function CitizenPage() {
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <Link
-                href="/student"
+                href={`/track?id=${submittedTicket.id}`}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2.5 px-5 rounded-xl shadow-sm transition"
               >
-                View in Student R&amp;D Hub →
+                Track Ticket Status ({submittedTicket.id}) →
+              </Link>
+              <Link
+                href="/"
+                className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition"
+              >
+                Back to Home
               </Link>
               <button
                 onClick={() => {

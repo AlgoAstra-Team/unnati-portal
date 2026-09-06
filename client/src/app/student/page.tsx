@@ -13,13 +13,12 @@ import {
   Plus, 
   X, 
   Sparkles, 
-  Building2, 
-  ExternalLink
+  Building2
 } from "lucide-react";
 import { useDemo } from "@/context/DemoContext";
 
 export default function StudentPage() {
-  const { projects, selectedProjectId, setSelectedProjectId, verifyMilestone, addTeamMember } = useDemo();
+  const { projects, selectedProjectId, verifyMilestone, addTeamMember } = useDemo();
 
   const currentProject = projects.find((p) => p.id === selectedProjectId) || projects[0];
 
@@ -67,10 +66,15 @@ export default function StudentPage() {
             <ArrowLeft className="w-4 h-4 text-slate-700" />
           </Link>
           <div>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-              Capstone R&D: <span className="text-cyan-700 font-mono font-bold">{currentProject.ticketId}</span>
-            </span>
-            <p className="text-[10px] text-slate-500 font-semibold">{currentProject.institution} • Departmental R&D Cell</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                BIT Mesra R&amp;D Hub
+              </span>
+              <span className="text-[10px] font-bold bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded-md border border-cyan-200">
+                Pre-Authenticated
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-500 font-semibold">Dept. of Mechanical &amp; Agricultural Engineering • Lead Faculty: Dr. A. K. Roy</p>
           </div>
         </div>
 
@@ -85,38 +89,36 @@ export default function StudentPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Sidebar: Problem Selector & Team */}
+        {/* Left Sidebar: Problem Challenge Details & Multidisciplinary Team */}
         <aside className="lg:col-span-4 space-y-5">
-          <div className="bg-white/90 backdrop-blur-xs p-4 rounded-2xl border border-cyan-100 shadow-xs space-y-3">
+          {/* Dedicated Problem Card */}
+          <div className="bg-white/90 backdrop-blur-xs p-5 rounded-2xl border border-cyan-100 shadow-xs space-y-3">
             <div className="flex items-center justify-between text-xs font-extrabold uppercase text-slate-400">
-              <span>Assigned R&D Pool</span>
-              <span className="text-cyan-600">{projects.length} Active</span>
+              <span>Assigned Ground Challenge</span>
+              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px] font-bold">
+                Active Capstone
+              </span>
             </div>
 
-            <div className="space-y-2">
-              {projects.map((proj) => {
-                const isSel = proj.id === currentProject.id;
-                return (
-                  <button
-                    key={proj.id}
-                    onClick={() => setSelectedProjectId(proj.id)}
-                    className={`w-full text-left p-3 rounded-xl border transition text-xs cursor-pointer ${
-                      isSel
-                        ? "bg-cyan-50 border-cyan-300 text-slate-900 shadow-xs"
-                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[9px] font-mono font-bold text-cyan-700">{proj.ticketId}</span>
-                      <span className="text-[9px] font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
-                        {proj.district}
-                      </span>
-                    </div>
-                    <h4 className="font-bold text-[11px] line-clamp-1">{proj.title}</h4>
-                    <p className="text-[10px] text-slate-500 mt-1">{proj.institution}</p>
-                  </button>
-                );
-              })}
+            <div className="p-3.5 rounded-xl bg-cyan-50/70 border border-cyan-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold text-cyan-800 bg-white px-2 py-0.5 rounded border border-cyan-200">
+                  {currentProject.ticketId}
+                </span>
+                <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  Severity {currentProject.severity}/10
+                </span>
+              </div>
+              <h4 className="font-extrabold text-xs text-slate-900 leading-snug">
+                Severe Post-Harvest Spoilage of Perishable Lac &amp; Vegetables
+              </h4>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Reported from <span className="font-bold text-slate-800">Torpa Block, Khunti</span> by Gram Mukhiya. Tribal farmers losing 40% harvest to transit heat.
+              </p>
+              <div className="pt-2 border-t border-cyan-200/60 flex items-center justify-between text-[10px] text-cyan-950 font-bold">
+                <span>Indic AI Triage Match:</span>
+                <span className="text-emerald-700 font-extrabold">94.2% Suitability Score</span>
+              </div>
             </div>
           </div>
 
@@ -223,12 +225,9 @@ export default function StudentPage() {
                 </div>
               </div>
 
-              <Link
-                href="/csr"
-                className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-1 shrink-0"
-              >
-                View in CSR Portal <ExternalLink className="w-3 h-3" />
-              </Link>
+              <span className="text-[11px] font-bold text-emerald-400 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 shrink-0">
+                Sec. 135 Escrow Active
+              </span>
             </div>
           </div>
 

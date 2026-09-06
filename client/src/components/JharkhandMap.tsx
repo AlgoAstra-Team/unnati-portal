@@ -281,20 +281,37 @@ export default function JharkhandMap({
           </button>
         </div>
 
-        <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500">
-          <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
-            <span>High Resolution (&gt;6 Pilots)</span>
+        {viewMode === "severity" ? (
+          <div className="flex items-center gap-3 text-[10px] font-bold text-slate-600">
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+              <span>Critical Hotspot (&gt;100 Issues)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+              <span>Moderate (60-100)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span>Low (&lt;60)</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
-            <span>Active R&D (2-5 Pilots)</span>
+        ) : (
+          <div className="flex items-center gap-3 text-[10px] font-bold text-slate-600">
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+              <span>High Resolution (&gt;6 Pilots)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
+              <span>Active R&amp;D (2-5 Pilots)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+              <span>Triage Ingestion</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-            <span>Triage Ingestion</span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* SVG Canvas Map */}
@@ -311,7 +328,7 @@ export default function JharkhandMap({
             fill="currentColor"
             className="text-emerald-950 font-black opacity-[0.03] text-7xl uppercase tracking-widest pointer-events-none"
           >
-            Jharkhand State GIS
+            Jharkhand State Heatmap
           </text>
 
           {/* District Regions */}
@@ -327,15 +344,15 @@ export default function JharkhandMap({
 
             if (data && matchesSector) {
               if (viewMode === "severity") {
-                if (data.problemCount >= 100) fillColor = "#a7f3d0"; // bright emerald-200
-                else if (data.problemCount >= 60) fillColor = "#bbf7d0"; // green-200
-                else fillColor = "#cffafe"; // cyan-100
-                strokeColor = isSelected ? "#059669" : "#10b981";
+                if (data.problemCount >= 100) fillColor = "#fecdd3"; // rose-200 (hotspot)
+                else if (data.problemCount >= 60) fillColor = "#fef08a"; // yellow-200 (moderate)
+                else fillColor = "#dcfce7"; // emerald-100 (low)
+                strokeColor = isSelected ? "#0f172a" : (data.problemCount >= 100 ? "#f43f5e" : data.problemCount >= 60 ? "#eab308" : "#10b981");
               } else {
-                if (data.solvedCount >= 8) fillColor = "#6ee7b7";
-                else if (data.solvedCount >= 4) fillColor = "#99f6e4";
+                if (data.solvedCount >= 8) fillColor = "#a7f3d0";
+                else if (data.solvedCount >= 4) fillColor = "#ccfbf1";
                 else fillColor = "#e0f2fe";
-                strokeColor = isSelected ? "#0d9488" : "#14b8a6";
+                strokeColor = isSelected ? "#0f172a" : "#14b8a6";
               }
             } else if (!matchesSector) {
               fillColor = "#f1f5f9";

@@ -4,30 +4,25 @@ import React, { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { DistrictGISData } from "@/types";
-import { Layers, Sparkles, Activity } from "lucide-react";
+import { Sparkles, Activity } from "lucide-react";
 
 interface LeafletMapProps {
   districts: DistrictGISData[];
   selectedDistrictId: string | null;
   onSelectDistrict: (id: string) => void;
+  onInspectDistrict?: (id: string) => void;
   sectorFilter: string;
 }
 
-// 100% Free Public Tile Servers - Zero API Key Required
-const TILE_URLS = {
-  osm: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-  esri: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-};
-
-const TILE_ATTRIBUTIONS = {
-  osm: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  esri: 'Tiles &copy; Esri &mdash; National Geographic, DeLorme, NAVTEQ',
-};
+// 100% Free Public OpenStreetMap Tile Server - Zero API Key Required
+const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 export default function JharkhandLeafletMap({
   districts,
   selectedDistrictId,
   onSelectDistrict,
+  onInspectDistrict,
   sectorFilter,
 }: LeafletMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -35,8 +30,21 @@ export default function JharkhandLeafletMap({
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const isFirstRender = useRef(true);
 
-  // Default to 100% free OpenStreetMap
-  const [tileStyle, setTileStyle] = useState<"osm" | "esri">("osm");
+  const onSelectDistrictRef = useRef(onSelectDistrict);
+  const onInspectDistrictRef = useRef(onInspectDistrict);
+
+  useEffect(() => {
+    onSelectDistrictRef.current = onSelectDistrict;
+    onInspectDistrictRef.current = onInspectDistrict;
+  }, [onSelectDistrict, onInspectDistrict]);
+
+  const handleInspect = (id: string) => {
+    onSelectDistrictRef.current(id);
+    if (onInspectDistrictRef.current) {
+      onInspectDistrictRef.current(id);
+    }
+  };
+
   const [viewMetric, setViewMetric] = useState<"problems" | "pilots">("problems");
 
   // 1. Initialize Leaflet Map
@@ -64,9 +72,9 @@ export default function JharkhandLeafletMap({
 
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    // Initial 100% free OpenStreetMap tile layer (zero API key)
-    L.tileLayer(TILE_URLS.osm, {
-      attribution: TILE_ATTRIBUTIONS.osm,
+    // 100% free OpenStreetMap tile layer (zero API key)
+    L.tileLayer(OSM_TILE_URL, {
+      attribution: OSM_ATTRIBUTION,
       maxZoom: 18,
     }).addTo(map);
 
@@ -74,6 +82,27 @@ export default function JharkhandLeafletMap({
 
     mapInstanceRef.current = map;
     markersLayerRef.current = markersLayer;
+
+    // Global fallback for any popup button click
+    if (typeof window !== "undefined") {
+      (window as unknown as { __inspectDistrict?: (id: string) => void }).__inspectDistrict = (id: string) => {
+        handleInspect(id);
+      };
+    }
+
+    // Delegated container click listener for map popup button
+    const handleContainerClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement)?.closest(".inspect-district-btn");
+      if (target) {
+        const districtId = target.getAttribute("data-district-id");
+        if (districtId) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleInspect(districtId);
+        }
+      }
+    };
+    container.addEventListener("click", handleContainerClick);
 
     // Invalidate size on mount and window resize
     const invalidate = () => map.invalidateSize();
@@ -85,27 +114,11 @@ export default function JharkhandLeafletMap({
       clearTimeout(t1);
       clearTimeout(t2);
       window.removeEventListener("resize", invalidate);
+      container.removeEventListener("click", handleContainerClick);
       map.remove();
       mapInstanceRef.current = null;
     };
   }, []);
-
-  // 2. Switch Tile Layer (OSM vs Esri Topo)
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-
-    map.eachLayer((layer) => {
-      if (layer instanceof L.TileLayer) {
-        map.removeLayer(layer);
-      }
-    });
-
-    L.tileLayer(TILE_URLS[tileStyle], {
-      attribution: TILE_ATTRIBUTIONS[tileStyle],
-      maxZoom: 18,
-    }).addTo(map);
-  }, [tileStyle]);
 
   // 3. Render / Update District Markers
   useEffect(() => {
@@ -159,15 +172,29 @@ export default function JharkhandLeafletMap({
         iconSize: [0, 0],
       });
 
+      // Spatial Heatmap Density Circle Halo on real map
+      const radiusMeters = Math.max(12000, Math.min(28000, (viewMetric === "pilots" ? d.solvedCount * 2600 : d.problemCount * 180)));
+      const heatCircle = L.circle([d.lat, d.lng], {
+        radius: radiusMeters,
+        fillColor: markerColor,
+        fillOpacity: isSelected ? 0.42 : 0.22,
+        stroke: true,
+        color: markerColor,
+        weight: isSelected ? 2 : 1,
+        opacity: isSelected ? 0.8 : 0.4,
+      });
+      heatCircle.on("click", () => onSelectDistrict(d.id));
+      heatCircle.addTo(markersLayer);
+
       const marker = L.marker([d.lat, d.lng], { icon: customIcon });
 
       const popupContent = `
-        <div style="font-family: inherit; min-width: 200px; padding: 2px;">
+        <div style="font-family: inherit; min-width: 210px; padding: 2px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
             <strong style="font-size: 14px; color: #0f172a;">${d.name} (${d.hindiName})</strong>
             <span style="font-size: 9px; font-weight: bold; background: #ecfdf5; color: #065f46; padding: 2px 6px; border-radius: 9999px; border: 1px solid #a7f3d0;">${d.prioritySector}</span>
           </div>
-          <div style="font-size: 11px; color: #475569; margin: 6px 0;">
+          <div style="font-size: 11px; color: #475569; margin: 6px 0; line-height: 1.5;">
             <div>• Reported Problems: <strong style="color: #0f172a;">${d.problemCount}</strong></div>
             <div>• Active R&D Teams: <strong style="color: #0284c7;">${d.activePilots}</strong></div>
             <div>• Verified Pilots: <strong style="color: #059669;">${d.solvedCount}</strong></div>
@@ -179,7 +206,10 @@ export default function JharkhandLeafletMap({
           ` : ""}
           <button 
             id="popup-btn-${d.id}"
-            style="width: 100%; background: #059669; color: white; font-weight: bold; font-size: 11px; padding: 5px; border-radius: 8px; border: none; cursor: pointer;"
+            class="inspect-district-btn"
+            data-district-id="${d.id}"
+            onclick="window.__inspectDistrict && window.__inspectDistrict('${d.id}')"
+            style="width: 100%; background: #059669; color: white; font-weight: bold; font-size: 11px; padding: 6px; border-radius: 8px; border: none; cursor: pointer; display: block; text-align: center; margin-top: 4px;"
           >
             Inspect District Details →
           </button>
@@ -194,7 +224,11 @@ export default function JharkhandLeafletMap({
       marker.on("popupopen", () => {
         const btn = document.getElementById(`popup-btn-${d.id}`);
         if (btn) {
-          btn.onclick = () => onSelectDistrict(d.id);
+          btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleInspect(d.id);
+          };
         }
       });
 
@@ -255,32 +289,6 @@ export default function JharkhandLeafletMap({
           </button>
         </div>
 
-        {/* Free Tile Style Switcher */}
-        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-          <Layers className="w-3.5 h-3.5 text-slate-500" />
-          <button
-            type="button"
-            onClick={() => setTileStyle("osm")}
-            className={`px-2.5 py-1 rounded-lg border transition cursor-pointer ${
-              tileStyle === "osm"
-                ? "bg-emerald-100/80 text-emerald-800 border-emerald-300 shadow-xs"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            OpenStreetMap (Free)
-          </button>
-          <button
-            type="button"
-            onClick={() => setTileStyle("esri")}
-            className={`px-2.5 py-1 rounded-lg border transition cursor-pointer ${
-              tileStyle === "esri"
-                ? "bg-emerald-100/80 text-emerald-800 border-emerald-300 shadow-xs"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            Esri Topo GIS (Free)
-          </button>
-        </div>
       </div>
 
       {/* Leaflet Map Canvas */}
@@ -294,20 +302,39 @@ export default function JharkhandLeafletMap({
         {/* Map Legend Overlay */}
         <div className="absolute bottom-3 right-3 bg-white/95 backdrop-blur-md border border-emerald-200 p-2.5 rounded-xl shadow-md text-[10px] space-y-1.5 z-20 pointer-events-auto">
           <span className="font-extrabold text-slate-800 block uppercase tracking-wider text-[9px]">
-            GIS Legend
+            GIS Heatmap Legend
           </span>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
-            <span className="font-semibold text-slate-700">Flagship Innovation Hub</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-            <span className="font-semibold text-slate-700">&gt;6 Field Pilots Deployed</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
-            <span className="font-semibold text-slate-700">Active R&D / Testing</span>
-          </div>
+          {viewMetric === "problems" ? (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse"></span>
+                <span className="font-semibold text-slate-700">Critical Hotspot (&gt;100 Issues)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                <span className="font-semibold text-slate-700">Moderate Density (60-100)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                <span className="font-semibold text-slate-700">Low / Stable (&lt;60)</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                <span className="font-semibold text-slate-700">&gt;6 Pilots Deployed</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-600"></span>
+                <span className="font-semibold text-slate-700">2-5 Pilots Active</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                <span className="font-semibold text-slate-700">Early Triage</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Users, 
   GraduationCap, 
@@ -10,8 +11,7 @@ import {
   Search, 
   ArrowRight, 
   MapPin, 
-  Sparkles,
-  ExternalLink
+  Sparkles
 } from "lucide-react";
 import { useDemo } from "@/context/DemoContext";
 import { ProblemTicket } from "@/types";
@@ -22,18 +22,13 @@ export default function LandingPage() {
   const [searchedTicket, setSearchedTicket] = useState<ProblemTicket | null>(tickets[0] || null);
   const [searchError, setSearchError] = useState(false);
 
+  const router = useRouter();
+
   const handleTrack = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticketQuery.trim()) return;
     const clean = ticketQuery.trim().toUpperCase();
-    const found = tickets.find(t => t.id.toUpperCase() === clean);
-    if (found) {
-      setSearchedTicket(found);
-      setSearchError(false);
-    } else {
-      setSearchedTicket(null);
-      setSearchError(true);
-    }
+    router.push(`/track?id=${encodeURIComponent(clean)}`);
   };
 
   const quickTickets = ["JH-2026-AG-09", "JH-2026-PA-881", "JH-2026-DH-104"];
@@ -68,10 +63,17 @@ export default function LandingPage() {
             </Link>
             <Link 
               href="/student"
-              className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-4 py-2.5 rounded-xl border border-slate-200 shadow-xs transition"
+              className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-4 py-2.5 rounded-xl border border-slate-200 shadow-xs transition flex items-center gap-1.5"
             >
-              Browse Student Capstones →
+              <GraduationCap className="w-4 h-4 text-cyan-600" />
+              <span>Student &amp; Faculty Login →</span>
             </Link>
+            <a 
+              href="#portals" 
+              className="text-[11px] font-bold text-slate-500 hover:text-emerald-700 px-2 py-1 transition flex items-center gap-1"
+            >
+              All Stakeholder Portals ↓
+            </a>
           </div>
         </div>
 
@@ -153,10 +155,10 @@ export default function LandingPage() {
               </div>
 
               <Link 
-                href="/student" 
-                className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center justify-end gap-1 pt-1"
+                href={`/track?id=${searchedTicket.id}`} 
+                className="text-[11px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center justify-end gap-1 pt-2 border-t border-slate-100"
               >
-                View capstone R&D milestones <ExternalLink className="w-3 h-3" />
+                Track Problem on Citizen Tracker Page →
               </Link>
             </div>
           ) : searchError ? (
@@ -184,7 +186,7 @@ export default function LandingPage() {
       </section>
 
       {/* 4 Main Stakeholder Portals */}
-      <section className="space-y-4">
+      <section id="portals" className="space-y-4 scroll-mt-20">
         <div className="text-center space-y-1">
           <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-widest">Select Your Stakeholder Portal ↘</h3>
           <p className="text-xs text-slate-500">Every stakeholder role drives a critical leg of the innovation cycle</p>

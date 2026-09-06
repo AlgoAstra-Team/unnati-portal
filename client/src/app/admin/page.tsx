@@ -10,37 +10,111 @@ import {
   Download, 
   Search,
   BarChart3,
-  Map,
-  Compass
+  Building2,
+  GraduationCap,
+  FileText,
+  ExternalLink,
+  X
 } from "lucide-react";
 import { useDemo } from "@/context/DemoContext";
 import { INSTITUTION_RANKINGS } from "@/lib/data";
-import JharkhandMap from "@/components/JharkhandMap";
+import { DistrictGISData } from "@/types";
 
-// Dynamically import Leaflet map with SSR disabled to prevent window object errors
+// Dynamically import Leaflet heatmap with SSR disabled to prevent window object errors
 const JharkhandLeafletMap = dynamic(
   () => import("@/components/JharkhandLeafletMap"),
   {
     ssr: false,
     loading: () => (
       <div className="h-[450px] w-full bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-center text-xs font-bold text-emerald-800 animate-pulse">
-        📍 Loading Interactive Leaflet GIS Map of Jharkhand...
+        📍 Loading Real-Time GIS Heatmap of Jharkhand...
       </div>
     ),
   }
 );
 
 export default function AdminPage() {
-  const { districts, selectedDistrictId, setSelectedDistrictId } = useDemo();
+  const { districts, selectedDistrictId, setSelectedDistrictId, tickets } = useDemo();
 
   const [sectorFilter, setSectorFilter] = useState<string>("all");
   const [searchDistrict, setSearchDistrict] = useState("");
   const [showTelemetryModal, setShowTelemetryModal] = useState(false);
-  const [mapType, setMapType] = useState<"leaflet" | "vector">("leaflet");
+  const [inspectingDistrict, setInspectingDistrict] = useState<DistrictGISData | null>(null);
 
   const selectedDistrict = districts.find(
     (d) => d.id === (selectedDistrictId || "khunti")
   ) || districts[0];
+
+  const handleInspectDistrict = (districtId: string) => {
+    const d = districts.find((item) => item.id === districtId);
+    if (d) {
+      setSelectedDistrictId(d.id);
+      setInspectingDistrict(d);
+    }
+  };
+
+  const getAnchorInstitution = (district: DistrictGISData) => {
+    const id = district.id;
+    if (id === "khunti" || id === "ranchi") return "BIT Mesra (Mechanical & Agricultural Eng.)";
+    if (id === "palamu" || id === "east-singhbhum") return "NIT Jamshedpur (Chemical & Environmental Eng.)";
+    if (id === "dhanbad" || id === "bokaro") return "IIT (ISM) Dhanbad & BIT Sindri";
+    if (id === "hazaribagh" || id === "ramgarh") return "Vinoba Bhave University & UCET Hazaribagh";
+    if (id === "dumka" || id === "deoghar" || id === "godda" || id === "sahibganj" || id === "pakur" || id === "jamtara") return "Sido Kanhu Murmu University & Dumka Govt. Engg. College";
+    if (id === "west-singhbhum" || id === "seraikela-kharsawan") return "Kolhan University & Chaibasa Engineering College";
+    return `${district.name} State Polytechnic & Innovation Cluster`;
+  };
+
+  const getDistrictEscrowSponsor = (district: DistrictGISData) => {
+    const id = district.id;
+    if (id === "khunti" || id === "east-singhbhum" || id === "west-singhbhum") return "Tata Steel Foundation (Escrow: ₹ 1,50,000)";
+    if (id === "dhanbad" || id === "bokaro") return "Bharat Coking Coal Limited (BCCL CSR: ₹ 1,80,000)";
+    if (id === "ranchi" || id === "ramgarh") return "Central Coalfields Limited (CCL CSR: ₹ 1,40,000)";
+    return "State CSR Innovation Corpus (Govt. of Jharkhand)";
+  };
+
+  const handleDownloadDossier = (district: DistrictGISData) => {
+    const districtTickets = tickets.filter(
+      (t) => t.district.toLowerCase() === district.name.toLowerCase()
+    );
+    const dossierData = {
+      state: "Jharkhand",
+      authority: "Dept. of Higher & Technical Education",
+      district: {
+        id: district.id,
+        name: district.name,
+        hindiName: district.hindiName,
+        prioritySector: district.prioritySector,
+        coordinates: { lat: district.lat, lng: district.lng },
+        flagshipCase: district.highlightCase || "General District Ingestion",
+        anchorInstitution: getAnchorInstitution(district),
+        csrSponsor: getDistrictEscrowSponsor(district),
+      },
+      metrics: {
+        totalGrievancesIngested: district.problemCount,
+        activeStudentRNDTeams: district.activePilots,
+        verifiedPilotsDeployed: district.solvedCount,
+        resolutionRate: `${Math.round((district.solvedCount / Math.max(district.problemCount, 1)) * 100)}%`,
+      },
+      activeTickets: districtTickets.map((t) => ({
+        id: t.id,
+        title: t.title,
+        village: t.village,
+        sector: t.sector,
+        status: t.status,
+        assignedHEI: t.assignedHEI,
+        leadFaculty: t.leadFaculty,
+      })),
+      generatedAt: new Date().toISOString(),
+    };
+
+    const blob = new Blob([JSON.stringify(dossierData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `unnati-dossier-${district.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Filter districts based on sector & search query
   const filteredDistricts = districts.filter((d) => {
@@ -58,14 +132,19 @@ export default function AdminPage() {
       {/* Sub Header / Context Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white/75 backdrop-blur-xs p-3.5 rounded-2xl border border-emerald-100 shadow-xs">
         <div className="flex items-center gap-2.5">
-          <Link href="/" className="p-1.5 bg-white rounded-xl border border-slate-200 hover:bg-slate-50 transition shadow-xs">
+          <Link href="/" className="p-1.5 bg-white rounded-xl border border-slate-200 hover:bg-slate-50 transition shadow-xs flex items-center justify-center text-slate-700">
             <ArrowLeft className="w-4 h-4 text-slate-700" />
           </Link>
           <div>
-            <span className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
-              State Administrative Command & GIS Analytics
-            </span>
-            <p className="text-[10px] text-slate-500">Dept. of Higher & Technical Education • Govt. of Jharkhand</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-emerald-950 uppercase tracking-wide">
+                State Administrative Command &amp; GIS Analytics
+              </span>
+              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200">
+                Live State Oversight
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-500 font-semibold">Dept. of Higher &amp; Technical Education • Govt. of Jharkhand</p>
           </div>
         </div>
 
@@ -115,52 +194,23 @@ export default function AdminPage() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-emerald-600" /> 24-District Jharkhand GIS Map
+                <MapPin className="w-4 h-4 text-emerald-600" /> 24-District Jharkhand GIS Heatmap
               </h3>
               <p className="text-xs text-slate-500">
-                Interactive spatial density of reported bottlenecks and active student pilots
+                Real-time geographic spatial heatmap of reported bottlenecks and active student pilots
               </p>
             </div>
 
-            {/* Map Mode Switcher & Search */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setMapType("leaflet")}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    mapType === "leaflet"
-                      ? "bg-white text-emerald-800 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  <Map className="w-3 h-3 text-emerald-600" />
-                  <span>Leaflet GIS</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMapType("vector")}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    mapType === "vector"
-                      ? "bg-white text-teal-800 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  <Compass className="w-3 h-3 text-teal-600" />
-                  <span>Choropleth</span>
-                </button>
-              </div>
-
-              <div className="relative w-36">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-                <input
-                  type="text"
-                  value={searchDistrict}
-                  onChange={(e) => setSearchDistrict(e.target.value)}
-                  placeholder="Filter..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-2 py-1 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-              </div>
+            {/* District Search Filter */}
+            <div className="relative w-full sm:w-44">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+              <input
+                type="text"
+                value={searchDistrict}
+                onChange={(e) => setSearchDistrict(e.target.value)}
+                placeholder="Filter district..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-2.5 py-1 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
             </div>
           </div>
 
@@ -188,26 +238,18 @@ export default function AdminPage() {
             ))}
           </div>
 
-          {/* Map Display: Leaflet or Vector */}
-          {mapType === "leaflet" ? (
-            <JharkhandLeafletMap
-              districts={districts}
-              selectedDistrictId={selectedDistrictId}
-              onSelectDistrict={setSelectedDistrictId}
-              sectorFilter={sectorFilter}
-            />
-          ) : (
-            <JharkhandMap
-              districts={districts}
-              selectedDistrictId={selectedDistrictId}
-              onSelectDistrict={setSelectedDistrictId}
-              sectorFilter={sectorFilter}
-            />
-          )}
+          {/* Real-Time 24-District Leaflet Heatmap */}
+          <JharkhandLeafletMap
+            districts={districts}
+            selectedDistrictId={selectedDistrictId}
+            onSelectDistrict={setSelectedDistrictId}
+            onInspectDistrict={handleInspectDistrict}
+            sectorFilter={sectorFilter}
+          />
 
           {/* Selected District Detail Card */}
-          <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
+          <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="text-base font-black text-slate-900">
                   {selectedDistrict.name} ({selectedDistrict.hindiName})
@@ -217,13 +259,13 @@ export default function AdminPage() {
                 </span>
               </div>
               {selectedDistrict.highlightCase && (
-                <p className="text-xs text-emerald-700 font-semibold mt-1">
+                <p className="text-xs text-emerald-700 font-semibold">
                   ★ Key Case: {selectedDistrict.highlightCase}
                 </p>
               )}
             </div>
 
-            <div className="flex items-center gap-4 text-xs font-bold shrink-0">
+            <div className="flex flex-wrap items-center gap-4 text-xs font-bold shrink-0">
               <div className="text-center">
                 <div className="text-slate-400 text-[9px] uppercase">Issues</div>
                 <div className="text-slate-900 text-sm">{selectedDistrict.problemCount}</div>
@@ -236,6 +278,12 @@ export default function AdminPage() {
                 <div className="text-slate-400 text-[9px] uppercase">Pilots Deployed</div>
                 <div className="text-emerald-700 text-sm">{selectedDistrict.solvedCount}</div>
               </div>
+              <button
+                onClick={() => setInspectingDistrict(selectedDistrict)}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer ml-1"
+              >
+                Inspect District Details →
+              </button>
             </div>
           </div>
 
@@ -248,20 +296,36 @@ export default function AdminPage() {
               {filteredDistricts.map((d) => {
                 const isSel = d.id === selectedDistrict.id;
                 return (
-                  <button
+                  <div
                     key={d.id}
                     onClick={() => setSelectedDistrictId(d.id)}
-                    className={`p-2 rounded-xl border text-left transition cursor-pointer ${
+                    className={`p-2 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
                       isSel
                         ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
                         : "bg-slate-50 hover:bg-white text-slate-800 border-slate-200"
                     }`}
                   >
-                    <div className="text-[11px] font-bold truncate">{d.name}</div>
-                    <div className={`text-[9px] ${isSel ? "text-emerald-100" : "text-slate-400"}`}>
-                      {d.problemCount} issues • {d.solvedCount} pilots
+                    <div>
+                      <div className="text-[11px] font-bold truncate">{d.name}</div>
+                      <div className={`text-[9px] ${isSel ? "text-emerald-100" : "text-slate-400"}`}>
+                        {d.problemCount} issues • {d.solvedCount} pilots
+                      </div>
                     </div>
-                  </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedDistrictId(d.id);
+                        setInspectingDistrict(d);
+                      }}
+                      className={`mt-1.5 text-[9px] font-bold py-0.5 px-1.5 rounded text-center cursor-pointer ${
+                        isSel 
+                          ? "bg-white/20 hover:bg-white/30 text-white" 
+                          : "bg-emerald-100 hover:bg-emerald-200 text-emerald-800"
+                      }`}
+                    >
+                      Inspect →
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -398,6 +462,231 @@ export default function AdminPage() {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comprehensive District Details Inspection Modal */}
+      {inspectingDistrict && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 border border-emerald-200 shadow-2xl relative space-y-6 animate-scaleUp my-8 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-emerald-100 pb-4">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xl font-black text-slate-900">
+                    {inspectingDistrict.name} ({inspectingDistrict.hindiName})
+                  </span>
+                  <span className="text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full">
+                    {inspectingDistrict.prioritySector}
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                    📍 {inspectingDistrict.lat}° N, {inspectingDistrict.lng}° E
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 font-medium">
+                  District Administrative Dossier • Department of Higher &amp; Technical Education, Govt. of Jharkhand
+                </p>
+              </div>
+              <button
+                onClick={() => setInspectingDistrict(null)}
+                className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 transition cursor-pointer"
+                title="Close Dossier"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 4 Overview Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3.5 text-center">
+                <div className="text-[10px] uppercase font-bold text-emerald-800">Total Grievances</div>
+                <div className="text-xl font-black text-emerald-950 mt-0.5">{inspectingDistrict.problemCount}</div>
+                <div className="text-[9px] text-emerald-700">Gram Panchayat Ingestion</div>
+              </div>
+              <div className="bg-cyan-50/70 border border-cyan-200 rounded-2xl p-3.5 text-center">
+                <div className="text-[10px] uppercase font-bold text-cyan-800">Active R&amp;D Teams</div>
+                <div className="text-xl font-black text-cyan-950 mt-0.5">{inspectingDistrict.activePilots}</div>
+                <div className="text-[9px] text-cyan-700">University Capstones</div>
+              </div>
+              <div className="bg-teal-50/70 border border-teal-200 rounded-2xl p-3.5 text-center">
+                <div className="text-[10px] uppercase font-bold text-teal-800">Verified Pilots</div>
+                <div className="text-xl font-black text-teal-950 mt-0.5">{inspectingDistrict.solvedCount}</div>
+                <div className="text-[9px] text-teal-700">On-Ground Deployed</div>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-center">
+                <div className="text-[10px] uppercase font-bold text-slate-600">Resolution Rate</div>
+                <div className="text-xl font-black text-slate-900 mt-0.5">
+                  {Math.round((inspectingDistrict.solvedCount / Math.max(inspectingDistrict.problemCount, 1)) * 100)}%
+                </div>
+                <div className="text-[9px] text-slate-500">Pipeline Efficacy</div>
+              </div>
+            </div>
+
+            {/* Strategic Interventions & Partner Institutions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                  <GraduationCap className="w-4 h-4 text-emerald-600" />
+                  Anchor Higher Education Institution (HEI)
+                </div>
+                <p className="text-xs font-semibold text-slate-900">
+                  {getAnchorInstitution(inspectingDistrict)}
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Assigned multidisciplinary faculty mentor and student capstone innovation team under NEP 2020 experiential learning framework.
+                </p>
+              </div>
+
+              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                  <Building2 className="w-4 h-4 text-cyan-600" />
+                  CSR Sponsor &amp; Milestone Escrow Partner
+                </div>
+                <p className="text-xs font-semibold text-slate-900">
+                  {getDistrictEscrowSponsor(inspectingDistrict)}
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Sec. 135 CSR escrow funds pre-allocated for rapid material acquisition and fabrication milestones.
+                </p>
+              </div>
+            </div>
+
+            {/* Flagship Innovation Case (if present) */}
+            {inspectingDistrict.highlightCase && (
+              <div className="bg-linear-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3">
+                <span className="text-xl">🌟</span>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                    District Flagship Innovation Pilot
+                  </h4>
+                  <p className="text-sm font-black text-slate-900 mt-0.5">
+                    {inspectingDistrict.highlightCase}
+                  </p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Certified in field trials with measurable reduction in community hardship and validated local economic impact.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Ingested Grassroots Grievances in this District */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                  Grassroots Problems &amp; Verified Case Files ({
+                    tickets.filter(t => t.district.toLowerCase() === inspectingDistrict.name.toLowerCase()).length
+                  })
+                </h4>
+                <Link
+                  href={`/track`}
+                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+                >
+                  Track All Tickets <ExternalLink className="w-3 h-3" />
+                </Link>
+              </div>
+
+              {tickets.filter(t => t.district.toLowerCase() === inspectingDistrict.name.toLowerCase()).length > 0 ? (
+                <div className="space-y-2.5">
+                  {tickets
+                    .filter(t => t.district.toLowerCase() === inspectingDistrict.name.toLowerCase())
+                    .map((t) => (
+                      <div
+                        key={t.id}
+                        className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs hover:border-emerald-300 transition space-y-2"
+                      >
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-black bg-slate-900 text-white px-2 py-0.5 rounded-md">
+                              {t.id}
+                            </span>
+                            <span className="text-xs font-bold text-slate-900">
+                              {t.village}
+                            </span>
+                            {t.mukhiyaEndorsed && (
+                              <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded">
+                                ✓ Gram Mukhiya Endorsed
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                            {t.status}
+                          </span>
+                        </div>
+
+                        <p className="text-xs font-semibold text-slate-800">
+                          {t.title}
+                        </p>
+                        <p className="text-xs text-slate-500 line-clamp-2">
+                          {t.description}
+                        </p>
+
+                        <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs">
+                          <div className="text-[11px] text-slate-600">
+                            <strong>Assigned HEI:</strong> {t.assignedHEI} {t.leadFaculty && `• Faculty: ${t.leadFaculty}`}
+                          </div>
+                          <Link
+                            href={`/track?id=${t.id}`}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1 shrink-0"
+                          >
+                            Track Live Status →
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center space-y-2">
+                  <p className="text-xs text-slate-600 font-medium">
+                    District baseline ingestion is synchronized for all gram panchayats in <strong>{inspectingDistrict.name}</strong>.
+                    No critical field escalations currently awaiting academic triage.
+                  </p>
+                  <Link
+                    href={`/citizen`}
+                    className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-xs transition"
+                  >
+                    Report Grassroots Problem for {inspectingDistrict.name} →
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Official Nodal Contacts */}
+            <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 text-xs text-slate-600 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div>
+                <strong>Deputy Commissioner Liaison:</strong> dc-{inspectingDistrict.id}@jharkhand.gov.in
+              </div>
+              <div>
+                <strong>District Planning Office:</strong> dpo-{inspectingDistrict.id}@nic.in
+              </div>
+            </div>
+
+            {/* Action Buttons in Modal Footer */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => handleDownloadDossier(inspectingDistrict)}
+                className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                Download District Dossier (.JSON)
+              </button>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <Link
+                  href={`/track`}
+                  className="w-full sm:w-auto text-center bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs px-4 py-2 rounded-xl shadow-xs transition"
+                >
+                  Citizen Tracking Portal
+                </Link>
+                <button
+                  onClick={() => setInspectingDistrict(null)}
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-2 rounded-xl shadow-xs transition cursor-pointer"
+                >
+                  Close Dossier
+                </button>
+              </div>
             </div>
           </div>
         </div>
